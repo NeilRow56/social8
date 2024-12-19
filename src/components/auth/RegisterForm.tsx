@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -14,7 +14,7 @@ import {
   FormMessage
 } from '@/components/ui/form'
 
-import { useState, useTransition } from 'react'
+import { useState, useActionState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -31,7 +31,8 @@ interface RegisterFormProps {
 export const RegisterForm = ({ callbackUrl }: RegisterFormProps) => {
   const [error, setError] = useState<string | undefined>('')
   const [success, setSuccess] = useState<string | undefined>('')
-  const [isLoading, setLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
+
   const router = useRouter()
   const form = useForm<z.infer<typeof RegisterSchema>>({
     resolver: zodResolver(RegisterSchema),
@@ -44,21 +45,26 @@ export const RegisterForm = ({ callbackUrl }: RegisterFormProps) => {
     }
   })
 
-  const onSubmit = async (data: z.infer<typeof RegisterSchema>) => {
-    setLoading(true)
-    register(data).then(res => {
-      if (res.error) {
-        setLoading(false)
-        setError(res.error)
-        setSuccess('')
-      }
-      if (res.success) {
-        setLoading(false)
-        setError('')
-        setSuccess(res.success)
-      }
+  const onSubmit = (data: z.infer<typeof RegisterSchema>) => {
+    setError('')
+    setSuccess('')
+
+    startTransition(() => {
+      register(data)
+        .then(data => {
+          if (data?.error) {
+            form.reset()
+            setError(data.error)
+          }
+          if (data?.success) {
+            form.reset()
+            setSuccess(data.success)
+
+            router.push('/guestbook')
+          }
+        })
+        .catch(() => setError('Something went wrong!'))
     })
-    setLoading(false)
   }
 
   return (
@@ -80,9 +86,9 @@ export const RegisterForm = ({ callbackUrl }: RegisterFormProps) => {
                   <FormControl>
                     <Input
                       {...field}
-                      placeholder='Name'
+                      placeholder=''
                       type='text'
-                      disabled={isLoading}
+                      disabled={isPending}
                     />
                   </FormControl>
                   <FormMessage />
@@ -99,9 +105,9 @@ export const RegisterForm = ({ callbackUrl }: RegisterFormProps) => {
                   <FormControl>
                     <Input
                       {...field}
-                      placeholder='Last name'
+                      placeholder=''
                       type='text'
-                      disabled={isLoading}
+                      disabled={isPending}
                     />
                   </FormControl>
                   <FormMessage />
@@ -118,9 +124,9 @@ export const RegisterForm = ({ callbackUrl }: RegisterFormProps) => {
                   <FormControl>
                     <Input
                       {...field}
-                      placeholder='john.doe@example.com'
+                      placeholder=''
                       type='email'
-                      disabled={isLoading}
+                      disabled={isPending}
                     />
                   </FormControl>
                   <FormMessage />
@@ -139,7 +145,7 @@ export const RegisterForm = ({ callbackUrl }: RegisterFormProps) => {
                       {...field}
                       type='password'
                       placeholder='********'
-                      disabled={isLoading}
+                      disabled={isPending}
                     />
                   </FormControl>
 
@@ -158,7 +164,7 @@ export const RegisterForm = ({ callbackUrl }: RegisterFormProps) => {
                       {...field}
                       type='password'
                       placeholder='********'
-                      disabled={isLoading}
+                      disabled={isPending}
                     />
                   </FormControl>
 
@@ -169,8 +175,8 @@ export const RegisterForm = ({ callbackUrl }: RegisterFormProps) => {
           </div>
           <FormError message={error} />
           <FormSuccess message={success} />
-          <Button type='submit' className='w-full' disabled={isLoading}>
-            {isLoading ? (
+          <Button type='submit' className='w-full' disabled={isPending}>
+            {isPending ? (
               <>
                 <Loader2 className='mr-2 h-4 w-4' /> Processing
               </>
